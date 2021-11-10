@@ -18,6 +18,7 @@ use lhs\elasticsearch\Elasticsearch as ElasticsearchPlugin;
 use lhs\elasticsearch\events\SearchEvent;
 use yii\base\Event;
 use yii\base\InvalidConfigException;
+use yii\base\UnknownMethodException;
 use yii\db\QueryInterface;
 use yii\elasticsearch\ActiveRecord;
 use yii\elasticsearch\Exception;
@@ -54,6 +55,22 @@ class ElasticsearchRecord extends ActiveRecord
     public static function type()
     {
         return '_doc';
+    }
+
+    /**
+     * To be able to use this class in complex twig templates that are written for a db record,
+     * it is necessary to be gentler with unknown methods. 
+     * @param string $name
+     * @param array $arguments
+     * @return mixed|null
+     */
+    public function __call( $name,  $arguments) {
+        try {
+            return parent::__call($name, $arguments);
+        }
+        catch (UnknownMethodException $e) {
+            return null;
+        }
     }
 
     public function id() {
