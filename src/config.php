@@ -50,6 +50,25 @@ return [
     'password'                     => 'password',
     'isAuthEnabled'                => true,
 
+    //        'resultFormatterCallback'  => function (array $formattedResult, $result) {
+    //                // Do something
+    //        },
+    //        'elementContentCallback' => function (\craft\base\ElementInterface $element) {
+    //            return '<span>Some HTML element content to index</span>';
+    //        },
+    //        'extraFields'              => [
+    //            'fieldOne' => [
+    //                'mapping'     => [
+    //                    'type'  => 'text',
+    //                    'analyzer' => 'standard',
+    //                    'store' => true
+    //                ],
+    //                'highlighter' => (object)['type' => 'plain'],
+    //                'value'       => function (\craft\base\ElementInterface $element, \lhs\elasticsearch\records\ElasticsearchRecord $esRecord) {
+    //                        // Return something
+    //                }
+    //            ]
+    //        ]
 
     // elasticsearchEndpoint, username, password and isAuthEnabled are ignore if this is set
     'elasticsearchComponentConfig' => [
@@ -70,24 +89,6 @@ return [
 
         'connectionTimeout' => 10,
         'dataTimeout'       => 30,
-        //        'resultFormatterCallback'  => function (array $formattedResult, $result) {
-        //                // Do something
-        //        },
-        //        'elementContentCallback' => function (\craft\base\ElementInterface $element) {
-        //            return '<span>Some HTML element content to index</span>';
-        //        },
-        //        'extraFields'              => [
-        //            'fieldOne' => [
-        //                'mapping'     => [
-        //                    'type'  => 'text',
-        //                    'analyzer' => 'standard',
-        //                    'store' => true
-        //                ],
-        //                'highlighter' => (object)['type' => 'plain'],
-        //                'value'       => function (\craft\base\ElementInterface $element, \lhs\elasticsearch\records\ElasticsearchRecord $esRecord) {
-        //                        // Return something
-        //                }
-        //            ]
-        //        ]
+
     ],
 ];
