@@ -27,6 +27,7 @@ use lhs\elasticsearch\events\ErrorEvent;
 use lhs\elasticsearch\exceptions\IndexElementException;
 use lhs\elasticsearch\models\IndexableElementModel;
 use lhs\elasticsearch\records\ElasticsearchRecord;
+use yii\db\QueryInterface;
 
 /**
  * Service used to interact with the Elasticsearch instance
@@ -148,21 +149,16 @@ class ElasticsearchService extends Component
     // Index Manipulation - Methods related to adding to / removing from the index
     // =========================================================================
 
-
     /**
      * Execute the given `$query` in the Elasticsearch index
      * @param string   $query  String to search for
      * @param int|null $siteId Site id to make the search
-     * @return ElasticsearchRecord[]
+     * @return QueryInterface
      * @throws IndexElementException
      *                         TODO: Throw a more specific exception
      */
-    public function search(string $query, $siteId = null): array
+    public function buildSearchQuery(string $queryString, $siteId = null): QueryInterface
     {
-        if ($query === '') {
-            return [];
-        }
-
         if ($siteId === null) {
             try {
                 $siteId = Craft::$app->getSites()->getCurrentSite()->id;
@@ -177,52 +173,83 @@ class ElasticsearchService extends Component
         }
 
         ElasticsearchRecord::$siteId = $siteId;
+
+        $esRecord = new ElasticsearchRecord();
+        $query = $esRecord->buildSearchQuery($queryString);
+
+        return $query;
+
+    }
+    /**
+     * Execute the given `$query` in the Elasticsearch index
+     * @param string   $queryString  String to search for
+     * @param int|null $siteId Site id to make the search
+     * @return ElasticsearchRecord[]
+     * @throws IndexElementException
+     *                         TODO: Throw a more specific exception
+     */
+    public function search(string $queryString, $siteId = null): array
+    {
+        if ($queryString === '') {
+            return [];
+        }
+
         try {
-            $esRecord = new ElasticsearchRecord();
-            $results = $esRecord->search($query);
-            $output = [];
-            $callback = $this->plugin->getSettings()->resultFormatterCallback;
-
-            // Get the list of extra fields
-            $extraFields = $this->plugin->getSettings()->extraFields;
-            $additionalFields = empty($extraFields) ? [] : array_keys($extraFields);
-
-            foreach ($results as $result) {
-                $formattedResult = [
-                    'id'            => $result->get_id(),
-                    'title'         => $result->title,
-                    'url'           => $result->url,
-                    'postDate'      => $result->postDate,
-                    'expiryDate'    => $result->expiryDate,
-                    'elementHandle' => $result->elementHandle,
-                    'score'         => $result->score,
-                    'highlights'    => $result->highlight ? array_merge(...array_values($result->highlight)) : [],
-                    'rawResult'     => $result,
-                ];
-
-                // Add extra fields to the current result
-                $additionalFormattedResult = [];
-                foreach ($additionalFields as $additionalField) {
-                    $additionalFormattedResult[$additionalField] = $result->$additionalField;
-                }
-                $formattedResult = ArrayHelper::merge($additionalFormattedResult, $formattedResult); // Do not override the default results
-
-                if ($callback) {
-                    $formattedResult = $callback($formattedResult, $result);
-                }
-                $output[] = $formattedResult;
-            }
-
-            return $output;
+            $query = $this->buildSearchQuery($queryString, $siteId);
+            $results = $query->all();
+            return $results;
         } catch (\Exception $e) {
             throw new IndexElementException(
                 Craft::t(
                     ElasticsearchPlugin::PLUGIN_HANDLE,
                     'An error occurred while running the "{searchQuery}" search query on Elasticsearch instance: {previousExceptionMessage}',
-                    ['previousExceptionMessage' => $e->getMessage(), 'searchQuery' => $query]
+                    ['previousExceptionMessage' => $e->getMessage(), 'searchQuery' => $queryString]
                 ), 0, $e
             );
         }
+    }
+
+    private function getFormattedResult(ElasticsearchRecord $result, $additionalFields, $callback) {
+        $formattedResult = [
+            'id'            => $result->get_id(),
+            'title'         => $result->title,
+            'url'           => $result->url,
+            'postDate'      => $result->postDate,
+            'expiryDate'    => $result->expiryDate,
+            'elementHandle' => $result->elementHandle,
+            'score'         => $result->score,
+            'highlights'    => $result->highlight ? array_merge(...array_values($result->highlight)) : [],
+            'rawResult'     => $result,
+        ];
+
+        // Add extra fields to the current result
+        $additionalFormattedResult = [];
+        foreach ($additionalFields as $additionalField) {
+            $additionalFormattedResult[$additionalField] = $result->$additionalField;
+        }
+        $formattedResult = ArrayHelper::merge($additionalFormattedResult, $formattedResult); // Do not override the default results
+
+        if ($callback) {
+            $formattedResult = $callback($formattedResult, $result);
+        }
+        return $formattedResult;
+    }
+
+    public function onAfterFindRecord(ElasticsearchRecord $record) {
+        $callback = $this->plugin->getSettings()->resultFormatterCallback;
+        $extraFields = $this->plugin->getSettings()->extraFields;
+        $additionalFields = empty($extraFields) ? [] : array_keys($extraFields);
+        $record->setRawResult(clone $record);
+
+        $formattedResult = $this->getFormattedResult($record, $additionalFields, $callback);
+        $attributes = $record->getAttributes();
+        foreach ($record->getAttributes() as $key => $attribute) {
+            if (isset($formattedResult[$key])) {
+                $record->$key = $formattedResult[$key];
+            }
+        }
+        $record->setHighlights($formattedResult['highlights']);
+
     }
 
     /**

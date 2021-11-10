@@ -12,6 +12,7 @@ namespace lhs\elasticsearch\variables;
 
 use lhs\elasticsearch\Elasticsearch;
 use lhs\elasticsearch\records\ElasticsearchRecord;
+use yii\db\QueryInterface;
 
 /**
  * This Twig variable allows running searches from the frontend templates
@@ -20,7 +21,7 @@ class ElasticsearchVariable
 {
     /**
      * Execute the given `$query` in the Elasticsearch index
-     *     {{ craft.elasticsearch.results(query) }}
+     *     {{ craft.elasticsearch.search(query) }}
      * @param string $query String to search for
      * @return ElasticsearchRecord[]
      * @throws \lhs\elasticsearch\exceptions\IndexElementException
@@ -28,5 +29,16 @@ class ElasticsearchVariable
     public function search($query): array
     {
         return Elasticsearch::getInstance()->service->search($query ?? '');
+    }
+    /**
+     * Execute the given `$query` in the Elasticsearch index
+     *     {{ craft.elasticsearch.results(query) }}
+     * @param string $query String to search for
+     * @return ElasticsearchRecord[]
+     * @throws \lhs\elasticsearch\exceptions\IndexElementException
+     */
+    public function buildSearchQuery($query): QueryInterface
+    {
+        return Elasticsearch::getInstance()->service->buildSearchQuery($query ?? '');
     }
 }

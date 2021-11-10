@@ -18,6 +18,7 @@ use lhs\elasticsearch\Elasticsearch as ElasticsearchPlugin;
 use lhs\elasticsearch\events\SearchEvent;
 use yii\base\Event;
 use yii\base\InvalidConfigException;
+use yii\db\QueryInterface;
 use yii\elasticsearch\ActiveRecord;
 use yii\elasticsearch\Exception;
 use yii\helpers\Json;
@@ -45,11 +46,52 @@ class ElasticsearchRecord extends ActiveRecord
     private $_queryParams;
     private $_highlightParams;
     private $_searchFields = ['attachment.content', 'title'];
+    private $_limit = 0;
+    private $_offset = 0;
+    private $_rawResult = null;
+    private $_highlights = [];
 
     public static function type()
     {
         return '_doc';
     }
+
+    public function id() {
+        return $this->get_id();
+    }
+
+    /**
+     * @return array
+     */
+    public function getHighlights(): array
+    {
+        return $this->_highlights;
+    }
+
+    /**
+     * @param array $highlights
+     */
+    public function setHighlights(array $highlights): void
+    {
+        $this->_highlights = $highlights;
+    }
+
+    /**
+     * @return null
+     */
+    public function getRawResult()
+    {
+        return $this->_rawResult;
+    }
+
+    /**
+     * @param null $rawResult
+     */
+    public function setRawResult($rawResult): void
+    {
+        $this->_rawResult = $rawResult;
+    }
+
 
     /**
      * @inheritdoc
@@ -145,6 +187,18 @@ class ElasticsearchRecord extends ActiveRecord
      */
     public function search(string $query)
     {
+        return $this->buildSearchQuery($query)->all();
+    }
+
+    /**
+     * Return an array of Elasticsearch records for the given query
+     * @param string $query
+     * @return QueryInterface
+     * @throws InvalidConfigException
+     * @throws Exception
+     */
+    public function buildSearchQuery(string $query)
+    {
         // Add extra fields to search parameters
         $extraFields = ElasticsearchPlugin::getInstance()->getSettings()->extraFields;
         $extraHighlighParams = [];
@@ -164,7 +218,14 @@ class ElasticsearchRecord extends ActiveRecord
         $this->trigger(self::EVENT_BEFORE_SEARCH, new SearchEvent(['query' => $query]));
         $queryParams = $this->getQueryParams($query);
         $highlightParams = $this->getHighlightParams();
-        return self::find()->query($queryParams)->highlight($highlightParams)->all();
+        $query = self::find()->query($queryParams)->highlight($highlightParams);
+        if ($this->getLimit() > 0) {
+            $query->limit($this->getLimit());
+        }
+        if ($this->getOffset() > 0) {
+            $query->offset($this->getOffset());
+        }
+        return $query;
     }
 
     /**
@@ -504,6 +565,38 @@ class ElasticsearchRecord extends ActiveRecord
     public function setHighlightParams($highlightParams)
     {
         $this->_highlightParams = $highlightParams;
+    }
+
+    /**
+     * @return int
+     */
+    public function getLimit(): int
+    {
+        return $this->_limit;
+    }
+
+    /**
+     * @param int $limit
+     */
+    public function setLimit(int $limit): void
+    {
+        $this->_limit = $limit;
+    }
+
+    /**
+     * @return int
+     */
+    public function getOffset(): int
+    {
+        return $this->_offset;
+    }
+
+    /**
+     * @param int $offset
+     */
+    public function setOffset(int $offset): void
+    {
+        $this->_offset = $offset;
     }
 
     /**

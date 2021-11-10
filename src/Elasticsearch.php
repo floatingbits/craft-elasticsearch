@@ -31,12 +31,14 @@ use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use lhs\elasticsearch\exceptions\IndexElementException;
 use lhs\elasticsearch\models\SettingsModel;
+use lhs\elasticsearch\records\ElasticsearchRecord;
 use lhs\elasticsearch\services\ElasticsearchService;
 use lhs\elasticsearch\services\ElementIndexerService;
 use lhs\elasticsearch\services\IndexManagementService;
 use lhs\elasticsearch\services\ReindexQueueManagementService;
 use lhs\elasticsearch\utilities\RefreshElasticsearchIndexUtility;
 use lhs\elasticsearch\variables\ElasticsearchVariable;
+use modules\elasticsearchextensionmodule\ElasticSearchExtensionModule;
 use yii\base\Event;
 use yii\debug\Module as DebugModule;
 use yii\elasticsearch\Connection;
@@ -184,6 +186,9 @@ class Elasticsearch extends Plugin
                 $variable->set('elasticsearch', ElasticsearchVariable::class);
             }
         );
+        Event::on(ElasticsearchRecord::class, ElasticsearchRecord::EVENT_AFTER_FIND, function (Event $event) {
+            $this->service->onAfterFindRecord($event->sender);
+        });
 
         // Register our site routes (used by the console commands to reindex entries)
         Event::on(
