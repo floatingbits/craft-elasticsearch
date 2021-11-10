@@ -16,6 +16,7 @@ use craft\helpers\ArrayHelper;
 use craft\helpers\Db;
 use lhs\elasticsearch\Elasticsearch as ElasticsearchPlugin;
 use lhs\elasticsearch\events\SearchEvent;
+use lhs\elasticsearch\queries\ElasticsearchQuery;
 use yii\base\Event;
 use yii\base\InvalidConfigException;
 use yii\base\UnknownMethodException;
@@ -59,7 +60,7 @@ class ElasticsearchRecord extends ActiveRecord
 
     /**
      * To be able to use this class in complex twig templates that are written for a db record,
-     * it is necessary to be gentler with unknown methods. 
+     * it is necessary to be gentler with unknown methods.
      * @param string $name
      * @param array $arguments
      * @return mixed|null
@@ -204,7 +205,27 @@ class ElasticsearchRecord extends ActiveRecord
      */
     public function search(string $query)
     {
-        return $this->buildSearchQuery($query)->all();
+        return $this->buildLegacySearchQuery($query)->all();
+    }
+
+    /**
+     * Return an array of Elasticsearch records for the given query
+     * @param string $query
+     * @return QueryInterface
+     * @throws InvalidConfigException
+     * @throws Exception
+     * @deprecated Use buildSearchQuery instead. Here for backwards compatibility of normal search
+     */
+    public function buildLegacySearchQuery(string $query)
+    {
+        $this->prepareHighlightParamsAndSearchFields();
+
+        $this->trigger(self::EVENT_BEFORE_SEARCH, new SearchEvent(['query' => $query]));
+        $queryParams = $this->getQueryParams($query);
+        $highlightParams = $this->getHighlightParams();
+//        $query = self::find()->setSearchFields($this->getSearchFields())->setSiteAnalyzer(self::siteAnalyzer())->searchString($query)->highlight($highlightParams);
+        $query = self::find()->query($queryParams)->highlight($highlightParams);
+        return $query;
     }
 
     /**
@@ -216,6 +237,29 @@ class ElasticsearchRecord extends ActiveRecord
      */
     public function buildSearchQuery(string $query)
     {
+        $this->prepareHighlightParamsAndSearchFields();
+        $this->trigger(self::EVENT_BEFORE_SEARCH, new SearchEvent(['query' => $query]));
+        $queryParams = $this->getQueryParams($query);
+        $highlightParams = $this->getHighlightParams();
+        $query = self::find()->parseQueryParameters($queryParams)->highlight($highlightParams);
+        return $query;
+    }
+
+    /**
+     * Return an array of Elasticsearch records for the given query
+     * @param string $query
+     * @return QueryInterface
+     * @throws InvalidConfigException
+     * @throws Exception
+     */
+    public function buildQuery()
+    {
+        $this->prepareHighlightParamsAndSearchFields();
+        $query = self::find()->setSiteAnalyzer(self::siteAnalyzer())->setSearchFields($this->getSearchFields());
+        return $query;
+    }
+
+    private function prepareHighlightParamsAndSearchFields() {
         // Add extra fields to search parameters
         $extraFields = ElasticsearchPlugin::getInstance()->getSettings()->extraFields;
         $extraHighlighParams = [];
@@ -231,18 +275,15 @@ class ElasticsearchRecord extends ActiveRecord
         $highlightParams = $this->getHighlightParams();
         $highlightParams['fields'] = ArrayHelper::merge($highlightParams['fields'], $extraHighlighParams);
         $this->setHighlightParams($highlightParams);
+    }
 
-        $this->trigger(self::EVENT_BEFORE_SEARCH, new SearchEvent(['query' => $query]));
-        $queryParams = $this->getQueryParams($query);
-        $highlightParams = $this->getHighlightParams();
-        $query = self::find()->query($queryParams)->highlight($highlightParams);
-        if ($this->getLimit() > 0) {
-            $query->limit($this->getLimit());
-        }
-        if ($this->getOffset() > 0) {
-            $query->offset($this->getOffset());
-        }
-        return $query;
+    /**
+     * @inheritdoc
+     * @return ElasticsearchQuery the newly created [[ElasticsearchQuery]] instance.
+     */
+    public static function find()
+    {
+        return \Yii::createObject(ElasticsearchQuery::class, [get_called_class()]);
     }
 
     /**

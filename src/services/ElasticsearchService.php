@@ -175,10 +175,39 @@ class ElasticsearchService extends Component
         ElasticsearchRecord::$siteId = $siteId;
 
         $esRecord = new ElasticsearchRecord();
-        $query = $esRecord->buildSearchQuery($queryString);
+        $query = $esRecord->buildLegacySearchQuery($queryString);
 
         return $query;
+    }
 
+    /**
+     * Return A Query Interface to run more complex queries
+     * @param int|null $siteId Site id to make the search
+     * @return QueryInterface
+     * @throws IndexElementException
+     *                         TODO: Throw a more specific exception
+     */
+    public function buildQuery($siteId = null): QueryInterface
+    {
+        if ($siteId === null) {
+            try {
+                $siteId = Craft::$app->getSites()->getCurrentSite()->id;
+            } catch (SiteNotFoundException $e) {
+                throw new IndexElementException(
+                    Craft::t(
+                        ElasticsearchPlugin::PLUGIN_HANDLE,
+                        'Cannot fetch the id of the current site. Please make sure at least one site is enabled.'
+                    ), 0, $e
+                );
+            }
+        }
+
+        ElasticsearchRecord::$siteId = $siteId;
+
+        $esRecord = new ElasticsearchRecord();
+        $query = $esRecord->buildQuery();
+
+        return $query;
     }
     /**
      * Execute the given `$query` in the Elasticsearch index

@@ -31,8 +31,7 @@ class ElasticsearchVariable
         return Elasticsearch::getInstance()->service->search($query ?? '');
     }
     /**
-     * Execute the given `$query` in the Elasticsearch index
-     *     {{ craft.elasticsearch.results(query) }}
+     * Return a query interface to be further filtered
      * @param string $query String to search for
      * @return ElasticsearchRecord[]
      * @throws \lhs\elasticsearch\exceptions\IndexElementException
@@ -40,5 +39,15 @@ class ElasticsearchVariable
     public function buildSearchQuery($query): QueryInterface
     {
         return Elasticsearch::getInstance()->service->buildSearchQuery($query ?? '');
+    }
+    /**
+     * Return a query interface to be further filtered
+     * @param string $query String to search for
+     * @return ElasticsearchRecord[]
+     * @throws \lhs\elasticsearch\exceptions\IndexElementException
+     */
+    public function buildQuery(): QueryInterface
+    {
+        return Elasticsearch::getInstance()->service->buildQuery();
     }
 }
