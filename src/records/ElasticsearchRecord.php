@@ -70,6 +70,7 @@ class ElasticsearchRecord extends ActiveRecord
             return parent::__call($name, $arguments);
         }
         catch (UnknownMethodException $e) {
+            Craft::info('Calling unknown method.', __METHOD__);
             return null;
         }
     }
