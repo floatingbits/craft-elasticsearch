@@ -45,7 +45,7 @@ class ElasticsearchQuery extends ActiveQuery
     private function applyFilter($name, $value) {
         $filterConfig = $this->registeredFilters[$name];
         $this->filterParts[] = [
-            $filterConfig['esFiltertype'] => [
+            $filterConfig['esFilterType'] => [
                 $filterConfig['fieldHandle'] => [
                     'value' => $value,
                 ],
